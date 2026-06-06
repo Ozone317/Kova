@@ -18,12 +18,11 @@ import "errors"
 * 3. Null array: *-1\r\n
  */
 
-
 func Decode(data []byte) (interface{}, error) {
 	if len(data) == 0 {
 		return nil, errors.New("no data")
 	}
-	
+
 	value, _, err := DecodeOne(data)
 	return value, err
 }
@@ -76,7 +75,7 @@ func decodeInteger64(data []byte) (int64, int, error) {
 	var value int64 = 0
 
 	for ; data[pos] != '\r'; pos++ {
-		value = value * 10 + int64(data[pos] - '0')
+		value = value*10 + int64(data[pos]-'0')
 	}
 
 	return value, pos + 2, nil
@@ -94,19 +93,19 @@ func decodeBulkString(data []byte) (string, int, error) {
 	pos += delta
 
 	// reading `len` bytes as string
-	return string(data[pos : pos + len]), pos + len + 2, nil
+	return string(data[pos : pos+len]), pos + len + 2, nil
 }
 
 func readLength(data []byte) (int, int) {
 	var pos int = 0
 	var length int = 0
-	
+
 	for pos := range data {
 		b := data[pos]
 		if !(b >= '0' && b <= '9') {
 			return length, pos + 2
 		}
-		length = length * 10 + int(b - '0')
+		length = length*10 + int(b-'0')
 	}
 
 	return length, pos + 2

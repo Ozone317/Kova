@@ -6,14 +6,14 @@ import (
 
 func TestDecodeSimpleString(t *testing.T) {
 	cases := map[string]struct {
-		input string
-		expected string
+		input          string
+		expected       string
 		expected_delta int
 		expected_error bool
 	}{
 		"simple string": {
-			input: "+OK\r\n",
-			expected: "OK",
+			input:          "+OK\r\n",
+			expected:       "OK",
 			expected_delta: 5,
 			expected_error: false,
 		},
@@ -40,14 +40,14 @@ func TestDecodeSimpleString(t *testing.T) {
 
 func TestDecodeError(t *testing.T) {
 	cases := map[string]struct {
-		input string
-		expected string
+		input          string
+		expected       string
 		expected_delta int
 		expected_error bool
 	}{
 		"simple error": {
-			input: "-ERR unknown command\r\n",
-			expected: "ERR unknown command",
+			input:          "-ERR unknown command\r\n",
+			expected:       "ERR unknown command",
 			expected_delta: 22,
 			expected_error: false,
 		},
@@ -74,14 +74,14 @@ func TestDecodeError(t *testing.T) {
 
 func TestDecodeInteger64(t *testing.T) {
 	cases := map[string]struct {
-		input string
-		expected int64
+		input          string
+		expected       int64
 		expected_delta int
 		expected_error bool
 	}{
 		"simple integer": {
-			input: ":1000\r\n",
-			expected: int64(1000),
+			input:          ":1000\r\n",
+			expected:       int64(1000),
 			expected_delta: 7,
 			expected_error: false,
 		},
@@ -108,14 +108,14 @@ func TestDecodeInteger64(t *testing.T) {
 
 func TestDecodeBulkString(t *testing.T) {
 	cases := map[string]struct {
-		input string
-		expected string
+		input          string
+		expected       string
 		expected_delta int
 		expected_error bool
 	}{
 		"simple bulk string": {
-			input: "$5\r\nhello\r\n",
-			expected: "hello",
+			input:          "$5\r\nhello\r\n",
+			expected:       "hello",
 			expected_delta: 11,
 			expected_error: false,
 		},
@@ -143,14 +143,14 @@ func TestDecodeBulkString(t *testing.T) {
 
 func TestDecodeArray(t *testing.T) {
 	cases := map[string]struct {
-		input string
-		expected []interface{}
+		input          string
+		expected       []interface{}
 		expected_delta int
 		expected_error bool
 	}{
 		"simple array": {
-			input: "*2\r\n$5\r\nhello\r\n$5\r\nworld\r\n",
-			expected: []interface{}{"hello", "world"},
+			input:          "*2\r\n$5\r\nhello\r\n$5\r\nworld\r\n",
+			expected:       []interface{}{"hello", "world"},
 			expected_delta: 26,
 			expected_error: false,
 		},
@@ -169,7 +169,7 @@ func TestDecodeArray(t *testing.T) {
 			if delta != tc.expected_delta {
 				t.Errorf("expected %d, got %d", tc.expected_delta, delta)
 			}
-			
+
 			for i := range tc.expected {
 				if value[i] != tc.expected[i] {
 					t.Errorf("expected %v, got %v", tc.expected, value)
