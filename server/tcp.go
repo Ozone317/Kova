@@ -1,10 +1,10 @@
 package server
 
 import (
-	"fmt"
-	"net"
 	"bufio"
+	"fmt"
 	"io"
+	"net"
 )
 
 func RunTCPServer() {
@@ -23,7 +23,7 @@ func RunTCPServer() {
 
 	// Infinite loop to accept incoming connections
 	for {
-		// (BLOCKING CALL) Accept a new connection 
+		// (BLOCKING CALL) Accept a new connection
 		conn, err := listener.Accept()
 		if err != nil {
 			fmt.Println("Error accepting connection: ", err)
@@ -32,7 +32,6 @@ func RunTCPServer() {
 
 		connected_clients++
 		fmt.Println("New client connected: ", conn.RemoteAddr(), "Total connected clients: ", connected_clients)
-
 
 		// Handle the connection
 		go handleConnection(conn, &connected_clients)
@@ -50,7 +49,7 @@ func handleConnection(conn net.Conn, connected_clients *int64) {
 		// Read a line of input from the client (blocking call)
 		message, err := reader.ReadString('\n')
 		if err != nil {
-			
+
 			(*connected_clients)--
 			fmt.Println("Client disconnected: ", conn.RemoteAddr(), "Total connected clients: ", *connected_clients)
 
