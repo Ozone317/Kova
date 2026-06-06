@@ -1,11 +1,45 @@
 package server
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"net"
+
+	"github.com/Ozone317/Kova/core"
 )
+
+func readCommand(conn net.Conn) (*core.KovaCmd, error) {
+	var buffer []byte = make([]byte, 512)
+	n, err := conn.Read(buffer[:])
+	if err != nil {
+		return nil, err
+	}
+
+	tokens, err := core.DecodeArrayString(buffer[:n])
+	if err != nil {
+		return nil, err
+	}
+
+	cmd := core.KovaCmd{
+		Cmd:  tokens[0],
+		Args: tokens[1:],
+	}
+	return &cmd, nil
+}
+
+func respond(command *core.KovaCmd, conn net.Conn) {
+	err := core.EvalAndRespond(command, conn)
+	if err != nil {
+		respondError(err, conn)
+	}
+}
+
+func respondError(err error, conn net.Conn) {
+	_, err = conn.Write([]byte(fmt.Sprintf("-%s\r\n", err)))
+	if err != nil {
+		fmt.Println("Error writing to client: ", err)
+	}
+}
 
 func RunTCPServer() {
 	var connected_clients int64 = 0
@@ -41,15 +75,11 @@ func RunTCPServer() {
 func handleConnection(conn net.Conn, connected_clients *int64) {
 	defer conn.Close()
 
-	// Create a buffer to read data from the client. Wraps the connection in a bufio.Reader for easier reading of lines.
-	reader := bufio.NewReader(conn)
-
 	// Infinite loop to continuously read messages from the client until the connection is closed
 	for {
 		// Read a line of input from the client (blocking call)
-		message, err := reader.ReadString('\n')
+		command, err := readCommand(conn)
 		if err != nil {
-
 			(*connected_clients)--
 			fmt.Println("Client disconnected: ", conn.RemoteAddr(), "Total connected clients: ", *connected_clients)
 
@@ -58,17 +88,10 @@ func handleConnection(conn net.Conn, connected_clients *int64) {
 			}
 
 			fmt.Println("Error reading from client: ", err)
+			continue
 		}
 
-		// Print received message to the console
-		fmt.Printf("Received from %s: %s", conn.RemoteAddr(), message)
-
-		// Echo the message back to the client
-		_, err = conn.Write([]byte("Echo: " + message))
-		if err != nil {
-			fmt.Println("Error writing to client: ", err)
-			return
-		}
+		respond(command, conn)
 
 	}
 }

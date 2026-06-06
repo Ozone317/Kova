@@ -1,6 +1,9 @@
 package core
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 /*
 * This file will handle the RESP (REdis Serialization Protocol) encoding and decoding.
@@ -132,4 +135,31 @@ func decodeArray(data []byte) ([]interface{}, int, error) {
 	}
 
 	return elements, pos, nil
+}
+
+// Gets an array of bytes containing commands and converts it into an array of strings
+func DecodeArrayString(data []byte) ([]string, error) {
+	val, err := Decode(data)
+	if err != nil {
+		return nil, err
+	}
+
+	ts := val.([]interface{})
+	tokens := make([]string, len(ts))
+	for i := range ts {
+		tokens[i] = ts[i].(string)
+	}
+	return tokens, nil
+}
+
+func Encode(value interface{}, isSimple bool) []byte {
+	switch v := value.(type) {
+	case string:
+		if isSimple {
+			return []byte(fmt.Sprintf("+%s\r\n", v))
+		}
+		return []byte(fmt.Sprintf("$%d\r\n%s\r\n", len(v), v))
+	}
+
+	return []byte{}
 }
