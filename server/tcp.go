@@ -8,7 +8,7 @@ import (
 	"github.com/Ozone317/Kova/core"
 )
 
-func readCommand(conn net.Conn) (*core.KovaCmd, error) {
+func readCommand(conn io.ReadWriter) (*core.KovaCmd, error) {
 	var buffer []byte = make([]byte, 512)
 	n, err := conn.Read(buffer[:])
 	if err != nil {
@@ -27,14 +27,14 @@ func readCommand(conn net.Conn) (*core.KovaCmd, error) {
 	return &cmd, nil
 }
 
-func respond(command *core.KovaCmd, conn net.Conn) {
+func respond(command *core.KovaCmd, conn io.ReadWriter) {
 	err := core.EvalAndRespond(command, conn)
 	if err != nil {
 		respondError(err, conn)
 	}
 }
 
-func respondError(err error, conn net.Conn) {
+func respondError(err error, conn io.ReadWriter) {
 	_, err = conn.Write([]byte(fmt.Sprintf("-%s\r\n", err)))
 	if err != nil {
 		fmt.Println("Error writing to client: ", err)

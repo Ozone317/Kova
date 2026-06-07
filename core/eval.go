@@ -2,10 +2,10 @@ package core
 
 import (
 	"errors"
-	"net"
+	"io"
 )
 
-func evalPING(args []string, conn net.Conn) error {
+func evalPING(args []string, conn io.ReadWriter) error {
 	if len(args) >= 2 {
 		return errors.New("ERR wrong number of arguments for 'ping' command")
 	}
@@ -22,7 +22,7 @@ func evalPING(args []string, conn net.Conn) error {
 	return err
 }
 
-func EvalAndRespond(command *KovaCmd, conn net.Conn) error {
+func EvalAndRespond(command *KovaCmd, conn io.ReadWriter) error {
 	switch command.Cmd {
 	case "PING":
 		return evalPING(command.Args, conn)
