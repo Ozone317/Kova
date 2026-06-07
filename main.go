@@ -1,9 +1,14 @@
 package main
 
 import (
+	"log"
+
 	"github.com/Ozone317/Kova/server"
 )
 
 func main() {
-	server.RunTCPServer()
+	err := server.RunAsyncTCPServer()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
