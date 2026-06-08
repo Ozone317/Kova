@@ -210,12 +210,15 @@ import (
 	"log"
 	"net"
 	"syscall"
+	"time"
 
 	"github.com/Ozone317/Kova/config"
 	"github.com/Ozone317/Kova/core"
 )
 
 var concurrent_clients int = 0
+var cleanup_interval time.Duration = 1 * time.Second
+var last_cleanup_time time.Time = time.Now()
 
 func RunAsyncTCPServer() error {
 	log.Println("starting an asynchronous TCP server on port 7379")
@@ -281,6 +284,11 @@ func RunAsyncTCPServer() error {
 	var events []syscall.EpollEvent = make([]syscall.EpollEvent, max_clients)
 
 	for {
+		if time.Since(last_cleanup_time) >= cleanup_interval {
+			core.DeleteExpiredKeys()
+			last_cleanup_time = time.Now()
+		}
+
 		// see if any FD is ready for IO
 		nevents, err := syscall.EpollWait(epollFD, events[:], -1)
 		if err != nil {
