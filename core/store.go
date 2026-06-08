@@ -31,11 +31,12 @@ func Get(key string) (*Object, bool) {
 		return nil, false
 	}
 
-	if obj.expiresAtMS > time.Now().UnixMilli() {
-		return obj, true
+	if obj.expiresAtMS <= time.Now().UnixMilli() {
+		delete(store, key)
+		return nil, false
 	}
 
-	return nil, false
+	return obj, true
 }
 
 func Ttl(key string) int64 {
@@ -52,4 +53,29 @@ func Ttl(key string) int64 {
 		return int64((obj.expiresAtMS - time.Now().UnixMilli()) / 1000)
 	}
 	return -2
+}
+
+func Del(keys []string) int64 {
+	var deleted int64 = 0
+	for _, key := range keys {
+		_, ok := store[key]
+		if !ok {
+			continue
+		}
+
+		delete(store, key)
+		deleted++
+	}
+
+	return deleted
+}
+
+func Expire(key string, ttlSeconds int64) int64 {
+	obj, ok := store[key]
+	if !ok {
+		return 0
+	}
+
+	obj.expiresAtMS = time.Now().UnixMilli() + ttlSeconds*1000
+	return 1
 }
