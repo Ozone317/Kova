@@ -19,3 +19,6 @@ coverage.out
 
 # OS files
 .DS_Store
+
+# AOF file
+*.aof
