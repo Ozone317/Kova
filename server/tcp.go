@@ -8,27 +8,33 @@ import (
 	"github.com/Ozone317/Kova/core"
 )
 
-func readCommand(conn io.ReadWriter) (*core.KovaCmd, error) {
+func readCommands(conn io.ReadWriter) (*core.KovaCmds, error) {
 	var buffer []byte = make([]byte, 512)
 	n, err := conn.Read(buffer[:])
 	if err != nil {
 		return nil, err
 	}
 
-	tokens, err := core.DecodeArrayString(buffer[:n])
+	all_tokens, err := core.DecodeArrayString(buffer[:n])
 	if err != nil {
 		return nil, err
 	}
 
-	cmd := core.KovaCmd{
-		Cmd:  tokens[0],
-		Args: tokens[1:],
+	var commands core.KovaCmds
+
+	for _, tokens := range all_tokens {
+		cmd := core.KovaCmd{
+			Cmd:  tokens[0],
+			Args: tokens[1:],
+		}
+		commands = append(commands, &cmd)
 	}
-	return &cmd, nil
+
+	return &commands, nil
 }
 
-func respond(command *core.KovaCmd, conn io.ReadWriter) {
-	err := core.EvalAndRespond(command, conn)
+func respond(commands *core.KovaCmds, conn io.ReadWriter) {
+	err := core.EvalAndRespond(commands, conn)
 	if err != nil {
 		respondError(err, conn)
 	}
@@ -78,7 +84,7 @@ func handleConnection(conn net.Conn, connected_clients *int64) {
 	// Infinite loop to continuously read messages from the client until the connection is closed
 	for {
 		// Read a line of input from the client (blocking call)
-		command, err := readCommand(conn)
+		command, err := readCommands(conn)
 		if err != nil {
 			(*connected_clients)--
 			fmt.Println("Client disconnected: ", conn.RemoteAddr(), "Total connected clients: ", *connected_clients)

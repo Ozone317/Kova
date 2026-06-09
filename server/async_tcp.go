@@ -329,14 +329,14 @@ func RunAsyncTCPServer() error {
 			} else {
 				// read the command as some client is sending a command
 				comm := core.FDComm{Fd: int(events[i].Fd)}
-				cmd, err := readCommand(comm)
+				commands, err := readCommands(comm)
 				if err != nil {
 					syscall.Close(int(events[i].Fd))
 					concurrent_clients--
 					log.Println("Client disconnected: ", events[i].Fd, "Total connected clients: ", concurrent_clients)
 					continue
 				}
-				respond(cmd, comm)
+				respond(commands, comm)
 			}
 		}
 	}
