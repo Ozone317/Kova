@@ -1,14 +1,15 @@
 package core
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"strconv"
 )
 
-func evalPING(args []string, conn io.ReadWriter) error {
+func evalPING(args []string) ([]byte, error) {
 	if len(args) >= 2 {
-		return errors.New("(error) ERR wrong number of arguments for 'ping' command")
+		return nil, errors.New("(error) ERR wrong number of arguments for 'ping' command")
 	}
 
 	var b []byte
@@ -19,13 +20,12 @@ func evalPING(args []string, conn io.ReadWriter) error {
 		b = Encode(args[0], false)
 	}
 
-	_, err := conn.Write(b)
-	return err
+	return b, nil
 }
 
-func evalSET(args []string, conn io.ReadWriter) error {
+func evalSET(args []string) ([]byte, error) {
 	if len(args) < 2 {
-		return errors.New("(error) ERR wrong number of arguments for 'set' command")
+		return nil, errors.New("(error) ERR wrong number of arguments for 'set' command")
 	}
 
 	var key string = args[0]
@@ -35,97 +35,106 @@ func evalSET(args []string, conn io.ReadWriter) error {
 	for i := 2; i < len(args); i++ {
 		if i < len(args) {
 			if args[i] != "EX" && args[i] != "ex" {
-				return errors.New("(error) ERR syntax error")
+				return nil, errors.New("(error) ERR syntax error")
 			}
 			i++
 			if i >= len(args) {
-				return errors.New("(error) ERR syntax error")
+				return nil, errors.New("(error) ERR syntax error")
 			}
 			time, err := strconv.ParseInt(args[i], 10, 64)
 			if err != nil {
-				return errors.New("(error) ERR syntax error")
+				return nil, errors.New("(error) ERR syntax error")
 			}
 			if time <= 0 {
-				return errors.New("(error) ERR invalid expire time in set")
+				return nil, errors.New("(error) ERR invalid expire time in set")
 			}
 			ttl = time
 		}
 	}
 
 	Put(key, val, ttl)
-	_, err := conn.Write(Encode("OK", true))
-	if err != nil {
-		return err
-	}
-	return nil
+
+	return Encode("OK", true), nil
 }
 
-func evalGET(args []string, conn io.ReadWriter) error {
+func evalGET(args []string) ([]byte, error) {
 	if len(args) != 1 {
-		return errors.New("(error) ERR wrong number of arguments for 'get' command")
+		return nil, errors.New("(error) ERR wrong number of arguments for 'get' command")
 	}
 
 	val, ok := Get(args[0])
 	if !ok {
-		_, err := conn.Write(Encode("(nil)", true))
-		return err
+		return Encode("(nil)", true), nil
 	}
 
-	_, err := conn.Write(Encode(val.value, false))
-	return err
+	return Encode(val.value, false), nil
 }
 
-func evalTTL(args []string, conn io.ReadWriter) error {
+func evalTTL(args []string) ([]byte, error) {
 	if len(args) != 1 {
-		return errors.New("(error) ERR wrong number of arguments for 'ttl' command")
+		return nil, errors.New("(error) ERR wrong number of arguments for 'ttl' command")
 	}
 
-	_, err := conn.Write(Encode(Ttl(args[0]), false))
-	return err
+	return Encode(Ttl(args[0]), false), nil
 }
 
-func evalDEL(args []string, conn io.ReadWriter) error {
+func evalDEL(args []string) ([]byte, error) {
 	if len(args) < 1 {
-		return errors.New("(error) ERR wrong number of arguments for 'del' command")
+		return nil, errors.New("(error) ERR wrong number of arguments for 'del' command")
 	}
 
-	_, err := conn.Write(Encode(Del(args), false))
-	return err
+	return Encode(Del(args), false), nil
 }
 
-func evalEXPIRE(args []string, conn io.ReadWriter) error {
+func evalEXPIRE(args []string) ([]byte, error) {
 	if len(args) != 2 {
-		return errors.New("(error) ERR wrong number of arguments for 'expire' command")
+		return nil, errors.New("(error) ERR wrong number of arguments for 'expire' command")
 	}
 
 	key := args[0]
 	ttl, err := strconv.ParseInt(args[1], 10, 64)
 	if err != nil {
-		return errors.New("(error) ERR value is not an integer or out of range")
+		return nil, errors.New("(error) ERR value is not an integer or out of range")
 	}
 	if ttl <= 0 {
-		return errors.New("(error) ERR invalid expire time in expire")
+		return nil, errors.New("(error) ERR invalid expire time in expire")
 	}
 
-	_, err = conn.Write(Encode(Expire(key, ttl), false))
-	return err
+	return Encode(Expire(key, ttl), false), nil
 }
 
-func EvalAndRespond(command *KovaCmd, conn io.ReadWriter) error {
-	switch command.Cmd {
-	case "PING":
-		return evalPING(command.Args, conn)
-	case "SET":
-		return evalSET(command.Args, conn)
-	case "GET":
-		return evalGET(command.Args, conn)
-	case "TTL":
-		return evalTTL(command.Args, conn)
-	case "DEL":
-		return evalDEL(command.Args, conn)
-	case "EXPIRE":
-		return evalEXPIRE(command.Args, conn)
-	default:
-		return evalPING(command.Args, conn)
+func EvalAndRespond(commands *KovaCmds, conn io.ReadWriter) error {
+	var buf bytes.Buffer
+	for _, command := range *commands {
+		var (
+			b   []byte
+			err error
+		)
+
+		switch command.Cmd {
+		case "PING":
+			b, err = evalPING(command.Args)
+		case "SET":
+			b, err = evalSET(command.Args)
+		case "GET":
+			b, err = evalGET(command.Args)
+		case "TTL":
+			b, err = evalTTL(command.Args)
+		case "DEL":
+			b, err = evalDEL(command.Args)
+		case "EXPIRE":
+			b, err = evalEXPIRE(command.Args)
+		default:
+			err = errors.New("unknown command")
+		}
+
+		if err != nil {
+			return err
+		}
+
+		buf.Write(b)
 	}
+
+	_, err := conn.Write(buf.Bytes())
+	return err
 }

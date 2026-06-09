@@ -3,6 +3,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"log"
 )
 
 /*
@@ -21,13 +22,24 @@ import (
 * 3. Null array: *-1\r\n
  */
 
-func Decode(data []byte) (interface{}, error) {
+func Decode(data []byte) ([]interface{}, error) {
 	if len(data) == 0 {
 		return nil, errors.New("no data")
 	}
 
-	value, _, err := DecodeOne(data)
-	return value, err
+	var i int = 0
+	var values []interface{}
+
+	for i < len(data) {
+		value, delta, err := DecodeOne(data[i:])
+		if err != nil {
+			return nil, err
+		}
+		values = append(values, value)
+		i += delta
+	}
+
+	return values, nil
 }
 
 func DecodeOne(data []byte) (interface{}, int, error) {
@@ -138,18 +150,22 @@ func decodeArray(data []byte) ([]interface{}, int, error) {
 }
 
 // Gets an array of bytes containing commands and converts it into an array of strings
-func DecodeArrayString(data []byte) ([]string, error) {
-	val, err := Decode(data)
+func DecodeArrayString(data []byte) ([][]string, error) {
+	values, err := Decode(data)
 	if err != nil {
 		return nil, err
 	}
-
-	ts := val.([]interface{})
-	tokens := make([]string, len(ts))
-	for i := range ts {
-		tokens[i] = ts[i].(string)
+	all_tokens := make([][]string, 0)
+	for _, value := range values {
+		ts := value.([]interface{})
+		tokens := make([]string, len(ts))
+		for i := range ts {
+			tokens[i] = ts[i].(string)
+		}
+		all_tokens = append(all_tokens, tokens)
+		log.Println("tokens: ", tokens)
 	}
-	return tokens, nil
+	return all_tokens, nil
 }
 
 func Encode(value interface{}, isSimple bool) []byte {

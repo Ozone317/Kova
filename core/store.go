@@ -38,7 +38,7 @@ func Get(key string) (*Object, bool) {
 		return nil, false
 	}
 
-	if obj.expiresAtMS <= time.Now().UnixMilli() {
+	if obj.expiresAtMS != -1 && obj.expiresAtMS <= time.Now().UnixMilli() {
 		delete(store, key)
 		return nil, false
 	}
