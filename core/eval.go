@@ -103,6 +103,14 @@ func evalEXPIRE(args []string) ([]byte, error) {
 	return Encode(Expire(key, ttl), false), nil
 }
 
+func evalBGREWRITEAOF(args []string) ([]byte, error) {
+	if len(args) != 0 {
+		return nil, errors.New("(error) ERR wrong number of arguments for 'bgrewriteaof' command")
+	}
+	DumpAllAOF()
+	return Encode("OK", true), nil
+}
+
 func EvalAndRespond(commands *KovaCmds, conn io.ReadWriter) error {
 	var buf bytes.Buffer
 	for _, command := range *commands {
@@ -124,6 +132,8 @@ func EvalAndRespond(commands *KovaCmds, conn io.ReadWriter) error {
 			b, err = evalDEL(command.Args)
 		case "EXPIRE":
 			b, err = evalEXPIRE(command.Args)
+		case "BGREWRITEAOF":
+			b, err = evalBGREWRITEAOF(command.Args)
 		default:
 			err = errors.New("unknown command")
 		}
