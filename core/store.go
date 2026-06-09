@@ -1,6 +1,10 @@
 package core
 
-import "time"
+import (
+	"time"
+
+	"github.com/Ozone317/Kova/config"
+)
 
 type Object struct {
 	value       interface{}
@@ -14,6 +18,9 @@ func init() {
 }
 
 func Put(key string, value interface{}, ttlSeconds int64) {
+	if len(store) >= config.MAX_KEYS {
+		evict()
+	}
 	var expiresAtMS int64 = -1
 	if ttlSeconds > 0 {
 		expiresAtMS = time.Now().UnixMilli() + ttlSeconds*1000
