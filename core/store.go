@@ -6,30 +6,31 @@ import (
 	"github.com/Ozone317/Kova/config"
 )
 
-type Object struct {
-	value       interface{}
-	expiresAtMS int64
-}
-
 var store map[string]*Object
 
 func init() {
 	store = make(map[string]*Object)
 }
 
-func Put(key string, value interface{}, ttlSeconds int64) {
+func NewObject(value interface{}, objectType uint8, objectEncoding uint8, durationMS int64) *Object {
+	var expiresAtMS int64 = -1
+	if durationMS > 0 {
+		expiresAtMS = time.Now().UnixMilli() + durationMS
+	}
+
+	return &Object{
+		value:        value,
+		expiresAtMS:  expiresAtMS,
+		typeEncoding: (objectType << 4) | objectEncoding,
+	}
+}
+
+func Put(key string, obj *Object) {
 	if len(store) >= config.MAX_KEYS {
 		evict()
 	}
-	var expiresAtMS int64 = -1
-	if ttlSeconds > 0 {
-		expiresAtMS = time.Now().UnixMilli() + ttlSeconds*1000
-	}
 
-	store[key] = &Object{
-		value:       value,
-		expiresAtMS: expiresAtMS,
-	}
+	store[key] = obj
 }
 
 func Get(key string) (*Object, bool) {
