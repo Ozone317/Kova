@@ -24,9 +24,9 @@ import (
 // (sorted)    SKIPLIST    when it grows beyond those limits
 
 type Object struct {
-	value        interface{}
-	expiresAtMS  int64
-	typeEncoding uint8 // type as the first 4 bits, encoding as the last 4 bits
+	value              interface{}
+	lastAccessedTimeMS uint32
+	typeEncoding       uint8 // type as the first 4 bits, encoding as the last 4 bits
 }
 
 const OBJ_TYPE_STRING = 0
