@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"strconv"
 )
@@ -145,6 +146,24 @@ func evalINCR(args []string) ([]byte, error) {
 	return Encode(val, false), nil
 }
 
+func evalINFO(args []string) ([]byte, error) {
+	if len(args) != 0 {
+		return nil, errors.New("(error) ERR wrong number of arguments for 'info' command")
+	}
+
+	var info []byte
+	buf := bytes.NewBuffer(info)
+	buf.WriteString("# Keyspace\r\n")
+	for i := range KeyspaceStat {
+		if KeyspaceStat[i] == nil {
+			continue
+		}
+		buf.WriteString(fmt.Sprintf("db%d:keys=%d,expires=%d,avg_ttl=%d\r\n", i, KeyspaceStat[i]["keys"], KeyspaceStat[i]["expires"], KeyspaceStat[i]["avg_ttl"]))
+	}
+
+	return Encode(buf.String(), false), nil
+}
+
 func EvalAndRespond(commands *KovaCmds, conn io.ReadWriter) error {
 	var buf bytes.Buffer
 	for _, command := range *commands {
@@ -170,6 +189,8 @@ func EvalAndRespond(commands *KovaCmds, conn io.ReadWriter) error {
 			b, err = evalBGREWRITEAOF(command.Args)
 		case "INCR":
 			b, err = evalINCR(command.Args)
+		case "INFO":
+			b, err = evalINFO(command.Args)
 		default:
 			err = errors.New("unknown command")
 		}
