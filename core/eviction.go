@@ -1,6 +1,10 @@
 package core
 
-import "github.com/Ozone317/Kova/config"
+import (
+	"time"
+
+	"github.com/Ozone317/Kova/config"
+)
 
 func evictAllkeysRandom() {
 	numToEvict := int(config.MAX_KEYS * config.ALL_KEYS_EVICTION_RATIO)
@@ -20,6 +24,10 @@ func evictFirst() {
 		delete(store, k)
 		return
 	}
+}
+
+func getCurrentClock() uint32 {
+	return uint32(time.Now().Unix()) & 0x00FFFFFF // shaving off the first 8 bits to keep the time in 24 bits as Redis does
 }
 
 // TODO: Make the eviction strategy configurable
