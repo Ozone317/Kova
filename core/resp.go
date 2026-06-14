@@ -164,8 +164,8 @@ func DecodeArrayString(data []byte) ([][]string, error) {
 			tokens[i] = ts[i].(string)
 		}
 		all_tokens = append(all_tokens, tokens)
-		log.Println("tokens: ", tokens)
 	}
+	log.Println("COMMANDS: ", all_tokens)
 	return all_tokens, nil
 }
 
