@@ -209,6 +209,9 @@ package server
 import (
 	"log"
 	"net"
+	"os"
+	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -220,7 +223,35 @@ var concurrent_clients int = 0
 var cleanup_interval time.Duration = 1 * time.Second
 var last_cleanup_time time.Time = time.Now()
 
-func RunAsyncTCPServer() error {
+const EngineStatus_WAITING int32 = 1 << 1
+const EngineStatus_BUSY int32 = 1 << 2
+const EngineStatus_SHUTTING_DOWN int32 = 1 << 3
+
+var eStatus int32 = EngineStatus_WAITING
+
+func WaitForSignal(wg *sync.WaitGroup, sigs chan os.Signal) {
+	defer wg.Done()
+	<-sigs // blocking call. until a signal is pushed onto the channel, code execution waits here
+
+	// if the server is busy, we continue to wait
+	for atomic.LoadInt32(&eStatus) == EngineStatus_BUSY {
+	}
+
+	// CRITICAL TO HANDLE
+	// we never want the server to go back to BUSY state
+	// when the control flow is here.
+
+	// immediately set the status to SHUTTING_DOWN
+	// the only place where we can set the status to SHUTTING_DOWN
+	atomic.StoreInt32(&eStatus, EngineStatus_SHUTTING_DOWN)
+
+	// now we initiate the shutdown
+	core.Shutdown()
+	os.Exit(0)
+}
+
+func RunAsyncTCPServer(wg *sync.WaitGroup) error {
+	defer wg.Done()
 	log.Println("starting an asynchronous TCP server on port 7379")
 
 	max_clients := 20000
@@ -270,7 +301,7 @@ func RunAsyncTCPServer() error {
 	// Specify the events we want to get hints about
 	// and set the server socket to be monitored
 	var socketServerEvent syscall.EpollEvent = syscall.EpollEvent{
-		Events: syscall.EPOLLIN,
+		Events: syscall.EPOLLIN, // EPOLLIN is a flag that tells epoll to monitor for incoming data
 		Fd:     int32(serverFD),
 	}
 
@@ -283,16 +314,38 @@ func RunAsyncTCPServer() error {
 	// Create EPOLL Event Objects to hold events. This will be holding file descriptors that are ready for IO by epoll system call
 	var events []syscall.EpollEvent = make([]syscall.EpollEvent, max_clients)
 
-	for {
+	// loop until the server is not shutting down
+	for atomic.LoadInt32(&eStatus) != EngineStatus_SHUTTING_DOWN {
 		if time.Since(last_cleanup_time) >= cleanup_interval {
 			core.DeleteExpiredKeys()
 			last_cleanup_time = time.Now()
 		}
 
+		// Say, the Engine triggered SHUTTING_DOWN when the control flow is here.
+		// Current: Engine status = WAITING
+		// Update: Engine status = SHUTTING_DOWn
+		// Then, we have to exit (handled in Signal Handler)
+
 		// see if any FD is ready for IO
 		nevents, err := syscall.EpollWait(epollFD, events[:], -1)
 		if err != nil {
 			continue
+		}
+
+		// Here, we do not want the server to go back from SHUTTING DOWN
+		// to BUSY.
+		// If we have engine_status == SHUTTING_DOWN over here,
+		// we must exit.
+		// Hence, the only legal transition is from WAITING to BUSY.
+		// If that does not happen, then we can exit.
+
+		// mark the engine as BUSY only when it is in WAITING state
+		if !atomic.CompareAndSwapInt32(&eStatus, EngineStatus_WAITING, EngineStatus_BUSY) {
+			// if the swap is unsuccessful, then the existing status is not WAITING
+			switch eStatus {
+			case EngineStatus_SHUTTING_DOWN:
+				return nil
+			}
 		}
 
 		for i := 0; i < nevents; i++ {
@@ -339,5 +392,12 @@ func RunAsyncTCPServer() error {
 				respond(commands, comm)
 			}
 		}
+
+		// mark the engine as WAITING
+		// no contention as the signal handler is blocked until
+		// the engine is BUSY
+		atomic.StoreInt32(&eStatus, EngineStatus_WAITING)
 	}
+
+	return nil
 }

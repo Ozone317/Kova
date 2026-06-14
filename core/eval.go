@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"time"
 )
 
 func evalPING(args []string) ([]byte, error) {
@@ -164,6 +165,23 @@ func evalINFO(args []string) ([]byte, error) {
 	return Encode(buf.String(), false), nil
 }
 
+func evalSLEEP(args []string) ([]byte, error) {
+	if len(args) != 1 {
+		return nil, errors.New("(error) ERR wrong number of arguments for 'sleep' command")
+	}
+
+	durationSec, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		return nil, errors.New("(error) ERR value is not an integer or out of range")
+	}
+	if durationSec <= 0 {
+		return nil, errors.New("(error) ERR invalid expire time in sleep")
+	}
+
+	time.Sleep(time.Duration(durationSec) * time.Second)
+	return Encode("OK", true), nil
+}
+
 func EvalAndRespond(commands *KovaCmds, conn io.ReadWriter) error {
 	var buf bytes.Buffer
 	for _, command := range *commands {
@@ -191,6 +209,8 @@ func EvalAndRespond(commands *KovaCmds, conn io.ReadWriter) error {
 			b, err = evalINCR(command.Args)
 		case "INFO":
 			b, err = evalINFO(command.Args)
+		case "SLEEP":
+			b, err = evalSLEEP(command.Args)
 		default:
 			err = errors.New("unknown command")
 		}
