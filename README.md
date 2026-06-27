@@ -4,49 +4,6 @@ A Redis-compatible in-memory key-value store built from scratch in Go — no Red
 
 Built as a deep-dive into how Redis actually works: event-driven I/O, RESP wire protocol, memory management, and persistence.
 
----
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────┐
-│                     client (redis-cli)               │
-└──────────────────────────┬──────────────────────────┘
-                           │  TCP (RESP protocol)
-┌──────────────────────────▼──────────────────────────┐
-│              Async TCP Server (epoll)                │
-│   single goroutine, up to 20,000 connections         │
-│   Linux syscall: EpollCreate1 / EpollWait / EpollCtl │
-└──────────────────────────┬──────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────┐
-│               RESP Parser / Encoder                  │
-│   hand-written decoder for +, -, :, $, * types       │
-└──────────────────────────┬──────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────┐
-│                   Command Evaluator                  │
-│   PING  GET  SET  DEL  TTL  EXPIRE  INCR  INFO       │
-│   BGREWRITEAOF  SLEEP                                │
-└──────────────────────────┬──────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────┐
-│                   In-Memory Store                    │
-│   map[string]*Object + separate expires map          │
-│   type/encoding packed into single uint8             │
-│   lazy expiry on GET + active probabilistic sampling │
-│   eviction: allkeys-lru / allkeys-random / first-key │
-└──────────────────────────┬──────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────┐
-│                  AOF Persistence                     │
-│   BGREWRITEAOF dumps full keyspace in RESP format    │
-│   auto-triggered on graceful shutdown                │
-└─────────────────────────────────────────────────────┘
-```
-
----
-
 ## Features
 
 ### Event-Driven I/O with Linux epoll
@@ -165,52 +122,11 @@ const (
 
 ---
 
-## Project Structure
-
-```
-.
-├── main.go                 # entry point, signal handling, WaitGroup
-├── config/
-│   └── constants.go        # server config
-├── server/
-│   ├── async_tcp.go        # epoll event loop
-│   └── tcp.go              # sync server (goroutine-per-connection baseline)
-└── core/
-    ├── resp.go             # RESP encoder/decoder
-    ├── resp_test.go
-    ├── cmd.go              # KovaCmd / KovaCmds types
-    ├── eval.go             # command evaluation
-    ├── store.go            # Put / Get / Del / Expire / Ttl
-    ├── object.go           # Object type, type/encoding constants
-    ├── type_string.go      # string encoding deduction
-    ├── expire.go           # active expiry sampling
-    ├── eviction.go         # eviction policies
-    ├── evictionpool.go     # LRU eviction pool
-    ├── aof.go              # AOF persistence
-    ├── events.go           # shutdown handler
-    ├── stats.go            # keyspace statistics
-    └── comm.go             # FDComm (fd → io.ReadWriter)
-```
-
----
-
 ## Running Tests
 
 ```bash
 make test
 ```
-
----
-
-## What I Learned
-
-This project was an exercise in reading Redis source code and re-implementing its ideas from first principles:
-
-- How `epoll` solves the C10K problem without threads
-- Why Redis uses probabilistic expiry sampling instead of scanning the full keyspace
-- How Redis packs type and encoding into a single byte to save memory
-- Why approximate LRU (eviction pool + sampling) is a practical trade-off over exact LRU
-- The subtleties of atomic state management in a signal handler
 
 ---
 
